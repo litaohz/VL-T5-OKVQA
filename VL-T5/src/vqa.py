@@ -86,9 +86,9 @@ class Trainer(TrainerBase):
 
         # Load Checkpoint
         self.start_epoch = None
-        if args.load is not None:
-            ckpt_path = args.load + '.pth'
-            self.load_checkpoint(ckpt_path)
+        # if args.load is not None:
+        #     ckpt_path = args.load + '.pth'
+        #     self.load_checkpoint(ckpt_path)
 
         if self.args.from_scratch:
             self.init_weights()
@@ -150,136 +150,136 @@ class Trainer(TrainerBase):
             dist.barrier()
 
         global_step = 0
-        for epoch in range(self.args.epochs):
-            if self.start_epoch is not None:
-                epoch += self.start_epoch
-            self.model.train()
-            if self.args.distributed:
-                self.train_loader.sampler.set_epoch(epoch)
-            if self.verbose:
-                pbar = tqdm(total=len(self.train_loader), ncols=120)
+        # for epoch in range(self.args.epochs):
+        #     if self.start_epoch is not None:
+        #         epoch += self.start_epoch
+        #     self.model.train()
+        #     if self.args.distributed:
+        #         self.train_loader.sampler.set_epoch(epoch)
+        #     if self.verbose:
+        #         pbar = tqdm(total=len(self.train_loader), ncols=120)
 
-            epoch_results = {
-                'loss': 0.,
+        #     epoch_results = {
+        #         'loss': 0.,
 
-            }
+        #     }
 
-            quesid2ans = {}
+        #     quesid2ans = {}
 
-            for step_i, batch in enumerate(self.train_loader):
+        #     for step_i, batch in enumerate(self.train_loader):
 
-                if self.args.fp16 and _use_native_amp:
-                    with autocast():
-                        if self.args.distributed:
-                            results = self.model.module.train_step(batch)
-                        else:
-                            results = self.model.train_step(batch)
-                else:
-                    if self.args.distributed:
-                        results = self.model.module.train_step(batch)
-                    else:
-                        results = self.model.train_step(batch)
+        #         if self.args.fp16 and _use_native_amp:
+        #             with autocast():
+        #                 if self.args.distributed:
+        #                     results = self.model.module.train_step(batch)
+        #                 else:
+        #                     results = self.model.train_step(batch)
+        #         else:
+        #             if self.args.distributed:
+        #                 results = self.model.module.train_step(batch)
+        #             else:
+        #                 results = self.model.train_step(batch)
 
-                loss = results['loss']
+        #         loss = results['loss']
 
-                if self.args.fp16 and _use_native_amp:
-                    self.scaler.scale(loss).backward()
-                elif self.args.fp16 and _use_apex:
-                    with amp.scale_loss(loss, self.optim) as scaled_loss:
-                        scaled_loss.backward()
-                else:
-                    loss.backward()
+        #         if self.args.fp16 and _use_native_amp:
+        #             self.scaler.scale(loss).backward()
+        #         elif self.args.fp16 and _use_apex:
+        #             with amp.scale_loss(loss, self.optim) as scaled_loss:
+        #                 scaled_loss.backward()
+        #         else:
+        #             loss.backward()
 
-                loss = loss.detach()
+        #         loss = loss.detach()
 
-                # Update Parameters
-                if self.args.clip_grad_norm > 0:
-                    if self.args.fp16 and _use_native_amp:
-                        self.scaler.unscale_(self.optim)
-                        torch.nn.utils.clip_grad_norm_(
-                            self.model.parameters(), self.args.clip_grad_norm)
-                    elif self.args.fp16 and _use_apex:
-                        torch.nn.utils.clip_grad_norm_(amp.master_params(
-                            self.optim), self.args.clip_grad_norm)
-                    else:
-                        torch.nn.utils.clip_grad_norm_(
-                            self.model.parameters(), self.args.clip_grad_norm)
+        #         # Update Parameters
+        #         if self.args.clip_grad_norm > 0:
+        #             if self.args.fp16 and _use_native_amp:
+        #                 self.scaler.unscale_(self.optim)
+        #                 torch.nn.utils.clip_grad_norm_(
+        #                     self.model.parameters(), self.args.clip_grad_norm)
+        #             elif self.args.fp16 and _use_apex:
+        #                 torch.nn.utils.clip_grad_norm_(amp.master_params(
+        #                     self.optim), self.args.clip_grad_norm)
+        #             else:
+        #                 torch.nn.utils.clip_grad_norm_(
+        #                     self.model.parameters(), self.args.clip_grad_norm)
 
-                if self.args.fp16 and _use_native_amp:
-                    self.scaler.step(self.optim)
-                    self.scaler.update()
-                else:
-                    self.optim.step()
+        #         if self.args.fp16 and _use_native_amp:
+        #             self.scaler.step(self.optim)
+        #             self.scaler.update()
+        #         else:
+        #             self.optim.step()
 
-                if self.lr_scheduler:
-                    self.lr_scheduler.step()
-                for param in self.model.parameters():
-                    param.grad = None
+        #         if self.lr_scheduler:
+        #             self.lr_scheduler.step()
+        #         for param in self.model.parameters():
+        #             param.grad = None
 
-                global_step += 1
+        #         global_step += 1
 
-                for k, v in results.items():
-                    if k in epoch_results:
-                        epoch_results[k] += v.item()
+        #         for k, v in results.items():
+        #             if k in epoch_results:
+        #                 epoch_results[k] += v.item()
 
-                if self.lr_scheduler:
-                    if version.parse(torch.__version__) >= version.parse("1.4"):
-                        lr = self.lr_scheduler.get_last_lr()[0]
-                    else:
-                        lr = self.lr_scheduler.get_lr()[0]
-                else:
-                    try:
-                        lr = self.optim.get_lr()[0]
-                    except AttributeError:
-                        lr = self.args.lr
+        #         if self.lr_scheduler:
+        #             if version.parse(torch.__version__) >= version.parse("1.4"):
+        #                 lr = self.lr_scheduler.get_last_lr()[0]
+        #             else:
+        #                 lr = self.lr_scheduler.get_lr()[0]
+        #         else:
+        #             try:
+        #                 lr = self.optim.get_lr()[0]
+        #             except AttributeError:
+        #                 lr = self.args.lr
 
-                if self.verbose:
-                    loss_meter.update(loss.item())
-                    desc_str = f'Epoch {epoch} | LR {lr:.6f}'
-                    desc_str += f' | Loss {loss_meter.val:4f}'
+        #         if self.verbose:
+        #             loss_meter.update(loss.item())
+        #             desc_str = f'Epoch {epoch} | LR {lr:.6f}'
+        #             desc_str += f' | Loss {loss_meter.val:4f}'
 
-                    pbar.set_description(desc_str)
-                    pbar.update(1)
+        #             pbar.set_description(desc_str)
+        #             pbar.update(1)
 
-                if self.args.distributed:
-                    dist.barrier()
+        #         if self.args.distributed:
+        #             dist.barrier()
 
-            if self.verbose:
-                pbar.close()
+        #     if self.verbose:
+        #         pbar.close()
 
-            # Validation
-            score_dict = self.evaluate(self.val_loader)
+        #     # Validation
+        #     score_dict = self.evaluate(self.val_loader)
 
-            if self.verbose:
-                valid_score = score_dict['topk_score'] * 100.
-                valid_score_raw = score_dict['overall']
-                if valid_score_raw > best_valid or epoch == 0:
-                    best_valid = valid_score_raw
-                    best_epoch = epoch
-                    self.save("BEST")
+        #     if self.verbose:
+        #         valid_score = score_dict['topk_score'] * 100.
+        #         valid_score_raw = score_dict['overall']
+        #         if valid_score_raw > best_valid or epoch == 0:
+        #             best_valid = valid_score_raw
+        #             best_epoch = epoch
+        #             self.save("BEST")
 
-                log_str = ''
-                log_str += "\nEpoch %d: Valid Raw %0.2f Topk %0.2f" % (epoch, valid_score_raw, valid_score)
-                log_str += "\nEpoch %d: Best Raw %0.2f\n" % (best_epoch, best_valid)
+        #         log_str = ''
+        #         log_str += "\nEpoch %d: Valid Raw %0.2f Topk %0.2f" % (epoch, valid_score_raw, valid_score)
+        #         log_str += "\nEpoch %d: Best Raw %0.2f\n" % (best_epoch, best_valid)
 
-                wandb_log_dict = {}
-                wandb_log_dict['Train/Loss'] = epoch_results['loss'] / len(self.train_loader)
+        #         wandb_log_dict = {}
+        #         wandb_log_dict['Train/Loss'] = epoch_results['loss'] / len(self.train_loader)
 
-                wandb_log_dict['Valid/score'] = valid_score
+        #         wandb_log_dict['Valid/score'] = valid_score
 
-                wandb_log_dict['Valid/raw_score'] = score_dict['overall']
-                for qtype, score in score_dict['perQuestionType'].items():
-                    wandb_log_dict[f'Valid_Qtypes/{qtype}'] = score
-                for atype, score in score_dict['perAnswerType'].items():
-                    if atype == 'yes/no':
-                        atype = 'yes_no'
-                    wandb_log_dict[f'Valid_Atypes/{atype}'] = score
+        #         wandb_log_dict['Valid/raw_score'] = score_dict['overall']
+        #         for qtype, score in score_dict['perQuestionType'].items():
+        #             wandb_log_dict[f'Valid_Qtypes/{qtype}'] = score
+        #         for atype, score in score_dict['perAnswerType'].items():
+        #             if atype == 'yes/no':
+        #                 atype = 'yes_no'
+        #             wandb_log_dict[f'Valid_Atypes/{atype}'] = score
 
-                wandb.log(wandb_log_dict, step=epoch)
-                print(log_str)
+        #         wandb.log(wandb_log_dict, step=epoch)
+        #         print(log_str)
 
-            if self.args.distributed:
-                dist.barrier()
+        #     if self.args.distributed:
+        #         dist.barrier()
 
         if self.verbose:
             self.save("LAST")
@@ -294,7 +294,7 @@ class Trainer(TrainerBase):
             evaluator = self.test_loader.evaluator
             score_dict = evaluator.evaluate(quesid2ans)
 
-            evaluator.dump_result(quesid2ans)
+            # evaluator.dump_result(quesid2ans)
 
             acc_dict_all = evaluator.evaluate_raw(quesid2ans)
             acc_dict_answerable = evaluator.evaluate_raw(quesid2ans, is_topk_optimal=True)
@@ -340,7 +340,10 @@ class Trainer(TrainerBase):
 
                 pred_ans = results['pred_ans']
                 ques_ids = batch['question_ids']
-
+                # print("pred_ans:", pred_ans)
+                # print("ques_ids:", ques_ids)
+                # ['man on right', '30', 'bike', 'skiing', 'brick', 'london', 'christmas', 'dock', 'rock', 'new york', 'scissors', 'modern', 'yes', 'taxi', 'mirror', 'professional', 'cake', 'oak', 'mountains', 'glass', 'baked', 'shade', '4 inches', 'hummingbird', 'watch', 'adidas', 'ceiling', 'backpack', 'cold', 'game', 'electricity', 'storm', 'adult', 'under', 'cat', 'light', 'commercial', 'donuts', 'parsley', 'tree', 'red sox', 'yes', 'passengers', 'unknown', 'flat screen', 'window']
+                # ques_ids: [4756585, 460485, 454635, 1375015, 2261615, 4979695, 2611855, 5314955, 5260895, 4750645, 4494805, 2776255, 1144205, 1803295, 517415, 5059395, 5442375, 2789775, 4247765, 5295075, 2952695, 3892555, 2523325, 1976525, 5607565, 3341255, 1964835, 142575, 4779065, 2880415, 4792485, 5516505, 1934985, 622985, 1683755, 2534085, 4732085, 4742935, 1429195, 1035095, 2111635, 780325, 969885, 5355015, 3147925, 861685]
                 for qid, ans in zip(ques_ids, pred_ans):
                     quesid2ans[qid] = ans
 
@@ -389,26 +392,26 @@ def main_worker(gpu, args):
 
 
     print(f'Building train loader at GPU {gpu}')
-    train_loader = get_loader(
-        args,
-        split=args.train, mode='train', batch_size=args.batch_size,
-        distributed=args.distributed, gpu=args.gpu,
-        workers=args.num_workers,
-        topk=args.train_topk,
-    )
+    # train_loader = get_loader(
+    #     args,
+    #     split=args.train, mode='train', batch_size=args.batch_size,
+    #     distributed=args.distributed, gpu=args.gpu,
+    #     workers=args.num_workers,
+    #     topk=args.train_topk,
+    # )
 
     if args.valid_batch_size is not None:
         valid_batch_size = args.valid_batch_size
     else:
         valid_batch_size = args.batch_size
     print(f'Building val loader at GPU {gpu}')
-    val_loader = get_loader(
-        args,
-        split=args.valid, mode='val', batch_size=valid_batch_size,
-        distributed=args.distributed, gpu=args.gpu,
-        workers=4,
-        topk=args.valid_topk,
-    )
+    # val_loader = get_loader(
+    #     args,
+    #     split=args.valid, mode='val', batch_size=valid_batch_size,
+    #     distributed=args.distributed, gpu=args.gpu,
+    #     workers=4,
+    #     topk=args.valid_topk,
+    # )
 
     print(f'Building test loader at GPU {gpu}')
     test_loader = get_loader(
@@ -419,7 +422,7 @@ def main_worker(gpu, args):
         topk=args.valid_topk,
     )
 
-    trainer = Trainer(args, train_loader, val_loader, test_loader, train=True)
+    trainer = Trainer(args, None, None, test_loader, train=False)
 
     if args.submit:
         print(f'Building test submit loader at GPU {gpu}')

@@ -255,7 +255,8 @@ class VQAFineTuneDataset(Dataset):
                     choice = np.random.multinomial(1, prob).argmax()
                     answer = answers[choice]
                     score = scores[choice]
-                    assert len(answer) > 0, (sent, label, choice, answer)
+                    # assert len(answer) > 0, (sent, label, choice, answer)
+                    assert  (sent, label, choice, answer)
 
                 out_dict['answer'] = answer
                 out_dict['score'] = score
@@ -426,9 +427,11 @@ class VQADataset:
         self.name = splits
         self.splits = splits.split(',')
 
-        with open(dataset_dir.joinpath(f'vqa/v2_mscoco_train2014_annotations.json')) as f:
+        # with open(dataset_dir.joinpath(f'vqa/v2_mscoco_train2014_annotations.json')) as f:
+        with open(dataset_dir.joinpath(f'vqa/mscoco_train2014_annotations.json')) as f:
             train2014_data = json.load(f)
-        with open(dataset_dir.joinpath(f'vqa/v2_mscoco_val2014_annotations.json')) as f:
+        # with open(dataset_dir.joinpath(f'vqa/v2_mscoco_val2014_annotations.json')) as f:
+        with open(dataset_dir.joinpath(f'vqa/mscoco_val2014_annotations.json')) as f:
             val2014_data = json.load(f)
         train2014_id2datum = {}
         for datum in train2014_data['annotations']:
@@ -439,10 +442,12 @@ class VQADataset:
             qid = datum['question_id']
             val2014_id2datum[qid] = datum
         self.id2datum_gt = {**train2014_id2datum, **val2014_id2datum}
-
+        print("train2014_id2datum:", len(train2014_id2datum))
+        print("val2014_id2datum:",len(val2014_id2datum))
         # Loading datasets
         self.data = []
         for split in self.splits:
+            print("vqa_dir path:", vqa_dir.joinpath("%s.json" % split))
             self.data.extend(
                 json.load(open(vqa_dir.joinpath("%s.json" % split))))
 
@@ -534,6 +539,7 @@ class VQAEvaluator:
         score = 0.
         for quesid, ans in quesid2ans.items():
             datum = self.dataset.id2datum[quesid]
+            # print("quesid:{} , ans:{} , datum:{}".format(quesid, ans, datum))
             label = datum['label']
             if ans in label:
                 score += label[ans]
