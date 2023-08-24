@@ -311,11 +311,14 @@ class Trainer(TrainerBase):
                 if atype == 'yes/no':
                     atype = 'yes_no'
                 wandb_log_dict[f'Test_Atypes/{atype}'] = score
-
+            import json
+            with open('submit.tsv', 'w') as f:
+                json.dump(quesid2ans, f)
             print(wandb_log_dict)
             wandb.log(wandb_log_dict)
 
         if self.args.submit:
+            print("Submitting to EvalAI server")
             dump_path = os.path.join(self.args.output, 'submit.json')
             self.predict(self.submit_test_loader, dump_path)
 

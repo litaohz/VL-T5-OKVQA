@@ -11,7 +11,7 @@ python -m torch.distributed.launch \
         --distributed --multiGPU \
         --train karpathy_train \
         --valid karpathy_val \
-        --test OpenEnded_mscoco_val2014_questions_new_labelled \
+        --test OpenEnded_mscoco_val2014_questions_new_labelled_rationales \
         --optim adamw \
         --warmup_ratio 0.1 \
         --clip_grad_norm 5 \
@@ -23,4 +23,5 @@ python -m torch.distributed.launch \
         --load snap/pretrain/VLT5/Epoch30 \
         --num_beams 5 \
         --batch_size 80 \
-        --valid_batch_size 100 \
+        --valid_batch_size 1 \
+        --max_text_length 40 \

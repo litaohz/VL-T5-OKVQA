@@ -168,7 +168,7 @@ class JointEncoder(T5Stack):
         self.embed_tokens = new_embeddings
         self.visual_embedding.obj_order_embedding = new_embeddings
 
-    def forward(
+    def forward_inner(
         self,
         input_ids=None,
         attention_mask=None,
@@ -184,13 +184,10 @@ class JointEncoder(T5Stack):
         output_hidden_states=None,
         return_dict=None,
     ):
-
         if inputs_embeds is None:
             assert self.embed_tokens is not None, "You have to initialize the model with valid token embeddings"
             inputs_embeds = self.embed_tokens(input_ids)
-
         B, L = inputs_embeds.size()[:-1]
-
         vis_feats = vis_inputs[0]
         boxes = vis_inputs[1]
         img_order_ids = None
@@ -204,11 +201,13 @@ class JointEncoder(T5Stack):
             vis_feats, boxes, img_order_ids, obj_order_ids)
 
         V_L = vis_embeds.size(1)
+        # print("B,L,V_L: ", B, L, V_L)
 
         inputs_embeds = torch.cat([inputs_embeds, vis_embeds], dim=1)
-
-        if attention_mask is None:
-            attention_mask = input_ids.ne(self.config.pad_token_id).to(dtype=inputs_embeds.dtype, device=inputs_embeds.device)
+        
+        # print("attention_mask: ", "None" if attention_mask is None else attention_mask.shape)
+        # print("vis_attention_mask: ", "None" if vis_attention_mask is None else vis_attention_mask.shape)
+        attention_mask = input_ids.ne(self.config.pad_token_id).to(dtype=inputs_embeds.dtype, device=inputs_embeds.device)
 
         if vis_attention_mask is None:
             vis_attention_mask = attention_mask.new_ones(B, V_L)
@@ -261,6 +260,8 @@ class JointEncoder(T5Stack):
             # no relative position bias Vision <-> Vision
             # position_bias[:, :, L:, :] = 0
             # position_bias[:, :, :, L:] = 0
+            # print("position_bias: ", position_bias.shape)
+            # print("extended_attention_mask: ", extended_attention_mask.shape)
             position_bias = position_bias + extended_attention_mask
 
             for i, (layer_module, past_key_value) in enumerate(zip(self.block, past_key_values)):
@@ -326,6 +327,86 @@ class JointEncoder(T5Stack):
             attentions=all_attentions,
             cross_attentions=all_cross_attentions,
         )
+
+    def forward(
+        self,
+        input_ids=None,
+        input_ids_ext=None,
+        attention_mask=None,
+
+        vis_inputs=None,
+        vis_attention_mask=None,
+
+        inputs_embeds=None,
+        head_mask=None,
+        past_key_values=None,
+        use_cache=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+    ):
+        print("input_ids: ", input_ids.shape, input_ids.device)
+       
+        encoder_outputs_ext = []
+        for i,input_ids_inner in enumerate(input_ids_ext):
+            input_ids_inner = input_ids_inner.unsqueeze(0).to(device=input_ids.device)
+            # print("input_ids_inner: ", i, input_ids_inner.shape, input_ids_inner.device)
+            x = self.forward_inner(
+                input_ids=input_ids_inner,
+                attention_mask=attention_mask,
+                
+                vis_inputs=vis_inputs,
+                vis_attention_mask=vis_attention_mask,
+
+                inputs_embeds=inputs_embeds,
+                head_mask=head_mask,
+                past_key_values=past_key_values,
+                use_cache=use_cache,
+                output_attentions=output_attentions,
+                output_hidden_states=output_hidden_states,
+                return_dict=return_dict,
+            )
+            # print("X", i, x[0].shape)
+            encoder_outputs_ext.append(x)
+        def mean_pooling(token_embeddings):
+            sentence_embeddings = token_embeddings.mean(dim=1)
+            return sentence_embeddings
+
+        encoder_all_tmp = []
+        sentence_embs = []
+        for i, item in enumerate(encoder_outputs_ext):
+            if i == 0:
+                encoder_all_tmp.append(item)
+            # print("item: ", i, item[0].shape)
+            # x = mean_pooling(item[0])
+            # print("x: ", i, x.shape)
+            sentence_embs.append(mean_pooling(item[0]))
+            # print("sentence_embs: ", i, sentence_embs[i].shape)
+        idx2sim = {}
+        for ii in range(1,len(encoder_outputs_ext)):
+            cos = nn.CosineSimilarity(dim=1)
+            # idx2sim[ii] = sentence_embs[0] @ sentence_embs[ii].t()
+            idx2sim[ii] = cos(sentence_embs[0], sentence_embs[ii])
+        newidx2sim = sorted(idx2sim.items(), key = lambda x: x[1], reverse= True)
+        print("idx2sim: ", idx2sim)
+        print("newidx2sim: ", list(map(lambda x: x[0], newidx2sim)))
+        topk = 2 if len(newidx2sim) > 2 else len(newidx2sim)
+        newidx2sim = newidx2sim[:topk]
+        for ii in newidx2sim:
+                idx = ii[0]
+                encoder_all_tmp.append(encoder_outputs_ext[idx])
+        # deepcopy the first one of encoder_all_tmp
+        
+        import copy
+        encoder_outputs_new = copy.deepcopy(encoder_all_tmp[0])
+        hidden_all = []
+        for i, item in enumerate(encoder_all_tmp):
+            print("item: ", i, item[0].shape)
+            hidden_all.append(item[0])
+        hidden_new = torch.cat(hidden_all, dim=1)
+        print("hidden_new: ", hidden_new.shape)
+        encoder_outputs_new['last_hidden_state'] = hidden_new
+        return encoder_outputs_new
 
 
 class VLT5(T5ForConditionalGeneration):
@@ -408,6 +489,7 @@ class VLT5(T5ForConditionalGeneration):
     def forward(
         self,
         input_ids=None,
+        input_ids_ext=None,
         attention_mask=None,
         encoder_outputs=None,
 
@@ -434,7 +516,8 @@ class VLT5(T5ForConditionalGeneration):
 
         use_cache = use_cache if use_cache is not None else self.config.use_cache
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-
+        # print("encoder_outputs:", encoder_outputs[0].shape)
+        # print("kwargs:", kwargs)
         if encoder_outputs is None:
 
             encoder_outputs = self.encoder(
@@ -460,7 +543,10 @@ class VLT5(T5ForConditionalGeneration):
             )
 
         hidden_states = encoder_outputs[0]
-
+        # make hidden_states first dimension = 1, and make them into the second demision
+        hidden_states = hidden_states.view(1, -1, hidden_states.shape[-1]) 
+        # print("hidden_states: ", hidden_states.shape)
+        # print("hidden_states: ", hidden_states.shape)
         if labels is not None and decoder_input_ids is None and decoder_inputs_embeds is None:
             # get decoder inputs from shifting lm labels to the right
             decoder_input_ids = self._shift_right(labels)

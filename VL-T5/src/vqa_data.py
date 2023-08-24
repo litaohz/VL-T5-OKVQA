@@ -180,11 +180,19 @@ class VQAFineTuneDataset(Dataset):
             sent = datum['question']
 
         input_ids = self.tokenizer.encode(f'vqa: {sent}', max_length=20, truncation=True)
-
+        input_ids_ext = []
+        input_ids_ext_length = []
+        max_len = 0
+        for i, s in enumerate(sent):
+            input_ids_ext_inner = self.tokenizer.encode(s)
+            input_ids_ext.append(torch.LongTensor(input_ids_ext_inner))
+            input_ids_ext_length.append(len(input_ids_ext_inner))
+            max_len = max(max_len, len(input_ids_ext_inner))
         question_id = datum['question_id']
         out_dict['question_id'] = question_id
 
-
+        out_dict['input_ids_ext'] = input_ids_ext
+        out_dict['input_ids_ext_length'] = input_ids_ext_length
         out_dict['sent'] = sent
         out_dict['input_ids'] = torch.LongTensor(input_ids)
         out_dict['input_length'] = len(input_ids)
@@ -280,7 +288,14 @@ class VQAFineTuneDataset(Dataset):
 
         S_W_L = max(entry['input_length'] for entry in batch)
         input_ids = torch.ones(B, S_W_L, dtype=torch.long) * self.tokenizer.pad_token_id
-
+        S_W_L_L = 0
+        max_size = 0
+        for entry in batch:
+            max_size = max(max_size, len(entry['input_ids_ext']))
+            for x in entry['input_ids_ext']:
+                S_W_L_L = max(S_W_L_L, len(x))
+        # print("S_W_L_L:", S_W_L_L)
+        # print("max_size:", max_size)
         if args.use_vision:
             V_L = len(batch[0]['boxes'])
             feat_dim = batch[0]['vis_feats'].shape[-1]
@@ -304,7 +319,7 @@ class VQAFineTuneDataset(Dataset):
         labels = []
         scores = []
         is_topk_optimal = []
-
+        input_ids_ext = []
         for i, entry in enumerate(batch):
             input_ids[i, :entry['input_length']] = entry['input_ids']
 
@@ -322,6 +337,8 @@ class VQAFineTuneDataset(Dataset):
                 # targets.append(entry['target'])
 
             sentences.append(entry['sent'])
+            ss = entry['input_ids_ext']
+            input_ids_ext += ss
             question_ids.append(entry['question_id'])
             if 'answer' in entry:
                 answers.append(entry['answer'])
@@ -357,7 +374,8 @@ class VQAFineTuneDataset(Dataset):
         batch_entry['all_answers'] = all_answers
         batch_entry['scores'] = torch.FloatTensor(scores)
         batch_entry['labels'] = labels
-
+        # a little bit hack, batch should be 1
+        batch_entry['input_ids_ext'] = input_ids_ext 
         batch_entry['args'] = args
         batch_entry['task'] = 'vqa'
 

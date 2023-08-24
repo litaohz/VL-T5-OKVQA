@@ -87,7 +87,9 @@ class VLT5VQA(VLT5):
         vis_feats = batch['vis_feats'].to(device)
         input_ids = batch['input_ids'].to(device)
         vis_pos = batch['boxes'].to(device)
-
+        input_ids_ext = batch['input_ids_ext']
+        # print("input_ids_ext: ", input_ids_ext.shape)
+        # print("input_ids: ", input_ids.shape)
         result = {}
         if self.config.classifier:
             B = len(input_ids)
@@ -97,6 +99,7 @@ class VLT5VQA(VLT5):
 
             output = self(
                 input_ids=input_ids,
+                input_ids_ext=input_ids_ext,
                 vis_inputs=(vis_feats, vis_pos),
                 decoder_input_ids=decoder_input_ids,
                 output_hidden_states=True,
@@ -114,8 +117,26 @@ class VLT5VQA(VLT5):
             pred_ans = [self.label2ans[ans_id] for ans_id in pred_ans_id]
 
             result['pred_ans'] = pred_ans
-
+            # add kwargs a new variable
+            # if kwargs['output_hidden_states']:
+            #     result['hidden_states'] = output.hidden_states
+            #     result['attentions'] = output.attentions
         else:
+            # new_input_ids = input_ids_ext.squeeze(0)
+            # # make input_ids_ext sqeeze the first element
+            # print("new_input_ids: ", new_input_ids.shape)
+            # x = new_input_ids.shape[0]
+            # # copy x times of vis_feats and concat them together
+            # print("vis_feats before: ", vis_feats.shape)
+            # vis_feats = vis_feats.repeat(x, 1, 1)
+            # print("vis_feats after: ", vis_feats.shape)
+            # # copy x times of vis_pos and concat them together
+            # print("vis_pos before: ", vis_pos.shape)
+            # vis_pos = vis_pos.repeat(x, 1, 1)
+            # print("vis_pos after: ", vis_pos.shape)
+            # vis_inputs=(vis_feats, vis_pos),
+            # print("**kwargs: ", kwargs)
+            kwargs['input_ids_ext'] = input_ids_ext
             output = self.generate(
                 input_ids=input_ids,
                 vis_inputs=(vis_feats, vis_pos),
