@@ -213,13 +213,15 @@ class JointEncoder(T5Stack):
             vis_attention_mask = attention_mask.new_ones(B, V_L)
 
         attention_mask = torch.cat([attention_mask, vis_attention_mask], dim=1)
-
         # ourselves in which case we just need to make it broadcastable to all heads.
         extended_attention_mask = self.get_extended_attention_mask(
             attention_mask,
             (B, L+V_L),
             inputs_embeds.device)
-
+        # print("attention_mask:", attention_mask.shape)
+        # print("extended_attention_mask, use_cache, output_attentions", extended_attention_mask.shape, output_attentions)
+        #         attention_mask: torch.Size([1, 55])
+        # extended_attention_mask, use_cache, output_attentions torch.Size([1, 1, 1, 55]) False
         # initialize past_key_values with `None` if past does not exist
         if past_key_values is None:
             past_key_values = [None] * len(self.block)
@@ -346,7 +348,7 @@ class JointEncoder(T5Stack):
         return_dict=None,
     ):
         print("input_ids: ", input_ids.shape, input_ids.device)
-       
+        print("attention_mask: ", attention_mask.shape, attention_mask.device)
         encoder_outputs_ext = []
         for i,input_ids_inner in enumerate(input_ids_ext):
             input_ids_inner = input_ids_inner.unsqueeze(0).to(device=input_ids.device)
@@ -390,7 +392,8 @@ class JointEncoder(T5Stack):
         newidx2sim = sorted(idx2sim.items(), key = lambda x: x[1], reverse= True)
         print("idx2sim: ", idx2sim)
         print("newidx2sim: ", list(map(lambda x: x[0], newidx2sim)))
-        topk = 2 if len(newidx2sim) > 2 else len(newidx2sim)
+        topkk = 3
+        topk = topkk if len(newidx2sim) > topkk else len(newidx2sim)
         newidx2sim = newidx2sim[:topk]
         for ii in newidx2sim:
                 idx = ii[0]
@@ -402,7 +405,7 @@ class JointEncoder(T5Stack):
         hidden_all = []
         for i, item in enumerate(encoder_all_tmp):
             print("item: ", i, item[0].shape)
-            hidden_all.append(item[0])
+            hidden_all.append(item['last_hidden_state'])
         hidden_new = torch.cat(hidden_all, dim=1)
         print("hidden_new: ", hidden_new.shape)
         encoder_outputs_new['last_hidden_state'] = hidden_new
@@ -516,7 +519,7 @@ class VLT5(T5ForConditionalGeneration):
 
         use_cache = use_cache if use_cache is not None else self.config.use_cache
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        # print("encoder_outputs:", encoder_outputs[0].shape)
+        print("encoder_outputs:", encoder_outputs[0].shape)
         # print("kwargs:", kwargs)
         if encoder_outputs is None:
 
@@ -534,6 +537,7 @@ class VLT5(T5ForConditionalGeneration):
                 return_dict=return_dict,
             )
         elif return_dict and not isinstance(encoder_outputs, BaseModelOutput):
+            # print("return_dict and not isinstance(encoder_outputs, BaseModelOutput)")
             encoder_outputs = BaseModelOutput(
                 last_hidden_state=encoder_outputs[0],
                 hidden_states=encoder_outputs[1] if len(
@@ -543,6 +547,7 @@ class VLT5(T5ForConditionalGeneration):
             )
 
         hidden_states = encoder_outputs[0]
+        # print("hidden_states: ", hidden_states.shape)
         # make hidden_states first dimension = 1, and make them into the second demision
         hidden_states = hidden_states.view(1, -1, hidden_states.shape[-1]) 
         # print("hidden_states: ", hidden_states.shape)
@@ -560,14 +565,15 @@ class VLT5(T5ForConditionalGeneration):
             if decoder_inputs_embeds is not None:
                 decoder_inputs_embeds = decoder_inputs_embeds[:, -1:]
 
-        if attention_mask is None:
-            attention_mask = input_ids.ne(self.config.pad_token_id).to(dtype=hidden_states.dtype, device=hidden_states.device)
-        if vis_attention_mask is None:
-            B, L = attention_mask.size()
-            V_L = encoder_outputs[0].size(1) - L
-            vis_attention_mask = attention_mask.new_ones(B, V_L)
+        # TODO: forcely change the attention_mask
+        
+        V_L = 36
+        vis_attention_mask = torch.ones(1, V_L, device=hidden_states.device)
+        L = encoder_outputs[0].size(1) - V_L
+        attention_mask = torch.ones(1, L, device=hidden_states.device)
         encoder_attention_mask = torch.cat([attention_mask, vis_attention_mask], dim=1)
-
+        print("attention_mask: ", attention_mask.shape)
+        print("encoder_attention_mask: ", encoder_attention_mask.shape)
         # Decode
         decoder_outputs = self.decoder(
             input_ids=decoder_input_ids,

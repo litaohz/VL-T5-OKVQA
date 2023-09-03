@@ -312,7 +312,7 @@ class Trainer(TrainerBase):
                     atype = 'yes_no'
                 wandb_log_dict[f'Test_Atypes/{atype}'] = score
             import json
-            with open('submit.tsv', 'w') as f:
+            with open(args.test + '_' + str(args.num_workers) + '_'  + 'submit.tsv', 'w') as f:
                 json.dump(quesid2ans, f)
             print(wandb_log_dict)
             wandb.log(wandb_log_dict)

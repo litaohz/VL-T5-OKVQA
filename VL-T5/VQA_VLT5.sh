@@ -17,11 +17,11 @@ python -m torch.distributed.launch \
         --clip_grad_norm 5 \
         --lr 5e-5 \
         --epochs 20 \
-        --num_workers 4 \
+        --num_workers 3 \
         --backbone 't5-base' \
         --output $output ${@:2} \
         --load snap/pretrain/VLT5/Epoch30 \
         --num_beams 5 \
-        --batch_size 80 \
+        --batch_size 1 \
         --valid_batch_size 1 \
         --max_text_length 40 \

@@ -1,8 +1,9 @@
-json_root = '/vc_data/users/taoli1/VL-T5-Ori/datasets/vqa/OpenEnded_mscoco_val2014_questions_new_labelled.json'
-output_root = '/vc_data/users/taoli1/VL-T5-Ori/datasets/vqa/OpenEnded_mscoco_val2014_questions_new_labelled_rationales.json'
+json_root = '/vc_data/users/taoli1/VL-T5-Ori/datasets/vqa/OpenEnded_mscoco_train2014_questions_new_labelled.json'
+output_root = '/vc_data/users/taoli1/VL-T5-Ori/datasets/vqa/OpenEnded_mscoco_train2014_questions_new_labelled_rationales.json'
 
 # json_root = 'test.json'
-rationale_root = '/vc_data/users/taoli1/mm/okvqa/annotations/rationale_ok_vqa_test2014_2023_6_3_23_32_2'
+# rationale_root = '/vc_data/users/taoli1/mm/okvqa/annotations/rationale_ok_vqa_test2014_2023_6_3_23_32_2'
+rationale_root = '/vc_data/users/taoli1/mm/okvqa/annotations/rationale_ok_vqa_train2014_2023_6_4_11_25_58'
 ann = {}
 import json,os,sys
 

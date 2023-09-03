@@ -179,12 +179,12 @@ class VQAFineTuneDataset(Dataset):
         elif 'question' in datum:
             sent = datum['question']
 
-        input_ids = self.tokenizer.encode(f'vqa: {sent}', max_length=20, truncation=True)
+        input_ids = self.tokenizer.encode(f'vqa: {sent}', max_length=100, truncation=False)
         input_ids_ext = []
         input_ids_ext_length = []
         max_len = 0
         for i, s in enumerate(sent):
-            input_ids_ext_inner = self.tokenizer.encode(s)
+            input_ids_ext_inner = self.tokenizer.encode(f'vqa: {s}', max_length=100, truncation=False)
             input_ids_ext.append(torch.LongTensor(input_ids_ext_inner))
             input_ids_ext_length.append(len(input_ids_ext_inner))
             max_len = max(max_len, len(input_ids_ext_inner))
