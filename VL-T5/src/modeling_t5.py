@@ -392,7 +392,7 @@ class JointEncoder(T5Stack):
         newidx2sim = sorted(idx2sim.items(), key = lambda x: x[1], reverse= True)
         print("idx2sim: ", idx2sim)
         print("newidx2sim: ", list(map(lambda x: x[0], newidx2sim)))
-        topkk = 3
+        topkk = 7
         topk = topkk if len(newidx2sim) > topkk else len(newidx2sim)
         newidx2sim = newidx2sim[:topk]
         for ii in newidx2sim:

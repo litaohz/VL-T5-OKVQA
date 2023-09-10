@@ -11,13 +11,13 @@ python -m torch.distributed.launch \
         --distributed --multiGPU \
         --train karpathy_train \
         --valid karpathy_val \
-        --test OpenEnded_mscoco_val2014_questions_new_labelled_rationales \
+        --test OpenEnded_mscoco_train2014_questions_new_labelled_rationales \
         --optim adamw \
         --warmup_ratio 0.1 \
         --clip_grad_norm 5 \
         --lr 5e-5 \
         --epochs 20 \
-        --num_workers 3 \
+        --num_workers 7 \
         --backbone 't5-base' \
         --output $output ${@:2} \
         --load snap/pretrain/VLT5/Epoch30 \
